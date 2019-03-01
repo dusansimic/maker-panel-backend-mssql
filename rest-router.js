@@ -57,7 +57,7 @@ restRouter.get('/applications', async (_req, res, next) => {
 restRouter.get('/application/:applicationId/devices', async (req, res, next) => {
 	try {
 		const {applicationId} = req.params;
-		const devicesList = (await pool.query(`SELECT * FROM DEVICE_IDS WHERE app_id IN (SELECT id FROM APPLICATION_IDS WHERE id = '${applicationId}')`)).recordset;
+		const devicesList = (await pool.query(`SELECT * FROM DEVICE_IDS WHERE app_id IN (SELECT id FROM APPLICATION_IDS WHERE app_id = '${applicationId}')`)).recordset;
 
 		res.send(devicesList);
 	} catch (error) {
@@ -86,8 +86,8 @@ ON P.id = DL.package
 INNER JOIN DATA_TYPES DT
 ON DT.id = DL.type
 WHERE P.timestamp > '${timestamp}' AND P.dev_id
-IN (SELECT DI.id FROM DEVICE_IDS DI WHERE DI.id = '${deviceId}' AND DI.app_id
-IN (SELECT AI.id FROM APPLICATION_IDS AI WHERE AI.id = '${applicationId}'))
+IN (SELECT DI.id FROM DEVICE_IDS DI WHERE DI.dev_id = '${deviceId}' AND DI.app_id
+IN (SELECT AI.id FROM APPLICATION_IDS AI WHERE AI.app_id = '${applicationId}'))
 GROUP BY P.id
 LIMIT ${count};
 `);
@@ -111,13 +111,14 @@ restRouter.get('/application/:applicationId/device/:deviceId/whole', async (req,
 
 		const data = (await pool.query(`
 SELECT TOP ${count} ISNULL(
-	JSON_QUERY(p.package_content, '$.payload_fields'),
-	JSON_VALUE(p.package_content, '$.payload_raw')
+  JSON_QUERY(p.package_content, '$.payload_fields'),
+  JSON_VALUE(p.package_content, '$.payload_raw')
 ) AS payload, p.timestamp
 FROM PACKAGES p
 WHERE p.timestamp > '${timestamp}' AND p.dev_id
-IN (SELECT dev.id FROM DEVICE_IDS dev WHERE dev.id = '${deviceId}' AND dev.app_id
-IN (SELECT app.id FROM APPLICATION_IDS app WHERE app.id = '${applicationId}'));
+IN (SELECT dev.id FROM DEVICE_IDS dev WHERE dev.dev_id = '${deviceId}' AND dev.app_id
+IN (SELECT app.id FROM APPLICATION_IDS app WHERE app.app_id = '${applicationId}'))
+ORDER BY p.timestamp DESC
 `)).recordset;
 
 		const parsedData = parsePayload(data);
@@ -158,8 +159,8 @@ SELECT ISNULL(
 ) AS payload, p.timestamp
 FROM PACKAGES p
 WHERE p.timestamp > '${timestamp}' AND p.id % ${count} = 0 AND p.dev_id
-IN (SELECT dev.id FROM DEVICE_IDS dev WHERE dev.id = '${deviceId}' AND dev.app_id
-IN (SELECT app.id FROM APPLICATION_IDS app WHERE app.id = '${applicationId}'));
+IN (SELECT dev.id FROM DEVICE_IDS dev WHERE dev.dev_id = '${deviceId}' AND dev.app_id
+IN (SELECT app.id FROM APPLICATION_IDS app WHERE app.app_id = '${applicationId}'));
 `)).recordset;
 
 		const parsedData = parsePayload(data);
@@ -178,8 +179,8 @@ restRouter.get('/application/:applicationId/device/:deviceId/location', async (r
 SELECT TOP 1 JSON_VALUE(p.package_content, '$.payload_fields.latitude') as latitude, JSON_VALUE(p.package_content, '$.payload_fields.longitude') as longitude
 FROM PACKAGES p
 WHERE p.id = (SELECT MAX(p1.id) FROM PACKAGES p1 WHERE p1.dev_id
-	IN (SELECT di.id FROM DEVICE_IDS di WHERE di.id = '${deviceId}' AND di.app_id
-		IN (SELECT ai.id FROM APPLICATION_IDS ai WHERE ai.id = '${applicationId}')));
+	IN (SELECT di.id FROM DEVICE_IDS di WHERE di.dev_id = '${deviceId}' AND di.app_id
+		IN (SELECT ai.id FROM APPLICATION_IDS ai WHERE ai.app_id = '${applicationId}')));
 `)).recordset;
 
 		const location = data[0];
