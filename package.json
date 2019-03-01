@@ -1,5 +1,5 @@
 {
-  "name": "maker-panel-backend-mysql",
+  "name": "maker-panel-backend-mssql",
   "version": "0.0.0",
   "description": "Maker panel backend that uses MySQL as a database.",
   "main": "app.js",
